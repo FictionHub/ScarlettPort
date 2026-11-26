@@ -33,6 +33,16 @@ pub fn newer(remote: &str, local: &str) -> bool {
     matches!((parse_version(remote), parse_version(local)), (Some(r), Some(l)) if r > l)
 }
 
+/// True when `name` is a bare file name. Asset names from the API are used as paths under
+/// `update\`, so a name with a directory part must never be accepted.
+fn plain_name(name: &str) -> bool {
+    !name.is_empty()
+        && name != "."
+        && name != ".."
+        && !name.contains(['/', '\\'])
+        && Path::new(name).file_name().is_some_and(|n| n.to_str() == Some(name))
+}
+
 /// The newest release in the API's JSON that has a launcher ZIP and a checksums file.
 pub fn pick(json: &serde_json::Value) -> Option<Release> {
     let mut best: Option<Release> = None;
@@ -44,13 +54,14 @@ pub fn pick(json: &serde_json::Value) -> Option<Release> {
         if !tag.starts_with('v') || parse_version(tag).is_none() {
             continue;
         }
-        let assets = r["assets"].as_array()?;
+        // One malformed release must not hide every older, usable one.
+        let Some(assets) = r["assets"].as_array() else { continue };
         let find = |pred: &dyn Fn(&str) -> bool| {
             assets.iter().find(|a| pred(a["name"].as_str().unwrap_or_default())).map(|a| {
                 (a["name"].as_str().unwrap_or_default().to_string(), a["browser_download_url"].as_str().unwrap_or_default().to_string())
             })
         };
-        let (Some((zip_name, zip_url)), Some((_, sums_url))) = (find(&|n| n.ends_with("-win64.zip")), find(&|n| n == "SHA256SUMS.txt")) else { continue };
+        let (Some((zip_name, zip_url)), Some((_, sums_url))) = (find(&|n| plain_name(n) && n.ends_with("-win64.zip")), find(&|n| n == "SHA256SUMS.txt")) else { continue };
         let cand = Release { version: tag.to_string(), zip_name, zip_url, sums_url, page: r["html_url"].as_str().unwrap_or_default().to_string() };
         if best.as_ref().is_none_or(|b| newer(&cand.version, &b.version)) {
             best = Some(cand);
@@ -83,6 +94,10 @@ pub fn expected_hash(sums: &str, name: &str) -> Option<String> {
 
 /// Downloads, verifies and stages `r`. `progress` gets (bytes, total).
 pub fn download(r: &Release, progress: &dyn Fn(u64, u64)) -> Result<(), String> {
+    // `pick` filters these out; re-check here in case a caller built the Release itself.
+    if !plain_name(&r.zip_name) {
+        return Err("the release ZIP name is not a plain file name".into());
+    }
     let base = base_dir().ok_or("the launcher's folder is unknown")?;
     let dir = base.join("update");
     let _ = std::fs::remove_dir_all(&dir);
@@ -245,6 +260,34 @@ mod tests {
         ]);
         let r = pick(&j).unwrap();
         assert_eq!((r.version.as_str(), r.zip_url.as_str(), r.sums_url.as_str()), ("v0.3.0", "z3", "s3"));
+    }
+
+    #[test]
+    fn skips_releases_without_assets() {
+        let j = serde_json::json!([
+            { "tag_name": "v9.0.0", "draft": false, "assets": null },
+            { "tag_name": "v0.3.0", "draft": false, "assets": [
+                { "name": "ScarlettPort-v0.3.0-win64.zip", "browser_download_url": "z3" },
+                { "name": "SHA256SUMS.txt", "browser_download_url": "s3" } ] }
+        ]);
+        assert_eq!(pick(&j).unwrap().zip_url, "z3");
+    }
+
+    #[test]
+    fn rejects_asset_names_with_paths() {
+        assert!(plain_name("ScarlettPort-v0.3.0-win64.zip"));
+        assert!(!plain_name(""));
+        assert!(!plain_name(".."));
+        assert!(!plain_name("../evil-win64.zip"));
+        assert!(!plain_name(r"..\evil-win64.zip"));
+        assert!(!plain_name(r"C:\evil-win64.zip"));
+        assert!(!plain_name("/evil-win64.zip"));
+        let j = serde_json::json!([
+            { "tag_name": "v9.0.0", "draft": false, "assets": [
+                { "name": "../evil-win64.zip", "browser_download_url": "bad" },
+                { "name": "SHA256SUMS.txt", "browser_download_url": "s" } ] }
+        ]);
+        assert!(pick(&j).is_none());
     }
 
     #[test]
