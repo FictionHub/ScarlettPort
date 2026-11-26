@@ -92,11 +92,12 @@ fn replace_ci(text: &str, from: &str, to: &str) -> String {
     if from.is_empty() {
         return text.to_string();
     }
-    let lower = text.to_lowercase();
-    let needle = from.to_lowercase();
-    if lower.len() != text.len() {
-        return text.replace(from, to);
-    }
+    // Unicode lowercasing can change a string's length while keeping the total the same
+    // (e.g. "İ" grows, "K" shrinks), so matches in that string cannot be sliced out of
+    // `text`. ASCII-only folding preserves every byte offset; non-ASCII text then still
+    // matches itself exactly, which is what folder and user names need here.
+    let lower = text.to_ascii_lowercase();
+    let needle = from.to_ascii_lowercase();
     let mut out = String::with_capacity(text.len());
     let mut i = 0;
     while let Some(j) = lower[i..].find(&needle) {
@@ -169,6 +170,18 @@ mod tests {
         let s = scrub(r"loading D:\Dumps\MyGame\x.rpf from E:\Cache\victory", &[(r"D:\Dumps\MyGame", "<game>"), (r"E:\Cache", "<cache>")]);
         assert_eq!(s, r"loading <game>\x.rpf from <cache>\victory");
         assert_eq!(replace_ci("Path C:\\USERS\\Bob\\x", "c:\\users\\bob", "~"), "Path ~\\x");
+    }
+
+    #[test]
+    fn replace_ci_never_slices_inside_a_code_point() {
+        // "İ" grows by one byte when lowercased and "K" shrinks by two, so this
+        // string has the same length before and after Unicode lowercasing but
+        // different byte boundaries. The old length check panicked here.
+        let tricky = "İKİ";
+        assert_eq!(tricky.len(), tricky.to_lowercase().len());
+        assert_eq!(replace_ci(tricky, "ki", "~"), tricky);
+        assert_eq!(replace_ci(tricky, tricky, "<user>"), "<user>");
+        assert_eq!(replace_ci(&format!("dir {tricky}\\doc"), tricky, "<user>"), "dir <user>\\doc");
     }
 
     #[test]
