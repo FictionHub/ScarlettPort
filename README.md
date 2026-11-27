@@ -11,6 +11,13 @@
 
 <b>⭐ If ScarlettPort helps you, please star the repo, it helps more people find it.</b>
 
+> *"Even $1 is enough to reward the hours that go into this. If everyone who downloaded ScarlettPort chipped in a single dollar, I could pay off my car three times over."* — Ziggy
+
+<a href="https://www.paypal.me/SalwanStudios"><img src="https://img.shields.io/badge/DONATE-PayPal-blue?style=for-the-badge&logo=paypal&logoColor=white" alt="Donate via PayPal"></a>
+<a href="https://ko-fi.com/ziggymar"><img src="https://img.shields.io/badge/BUY%20A%20COFFEE-Ko--fi-ff5f5f?style=for-the-badge&logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
+
+<sub>Donations are voluntary gifts that support development time. They are not a purchase: they buy no game content, access, builds or perks. PayPal: please send as <b>Friends & Family</b> (a gift).</sub>
+
 </div>
 
 <img src="assets/cell-v050.png" width="100%" alt="Opening cell drawn by the ScarlettPort runtime">
@@ -481,15 +488,6 @@ Testers with different GPUs help most right now: GPU, driver, CPU, RAM, how long
 
 </details>
 
-<details>
-<summary><b>Donations</b></summary>
-
-<a href="https://www.paypal.me/SalwanStudios"><img src="https://img.shields.io/badge/DONATE-PayPal-blue?style=for-the-badge&logo=paypal&logoColor=white" alt="Donate via PayPal"></a>
-<a href="https://ko-fi.com/ziggymar"><img src="https://img.shields.io/badge/BUY%20A%20COFFEE-Ko--fi-ff5f5f?style=for-the-badge&logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
-
-<sub>Donations are voluntary gifts that support development time. They are not a purchase: they buy no game content, access, builds or perks. PayPal: please send as <b>Friends & Family</b> (a gift).</sub>
-
-</details>
 
 ---
 
