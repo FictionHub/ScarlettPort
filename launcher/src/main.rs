@@ -1618,7 +1618,8 @@ pub fn split_lines(mut stream: Box<dyn Read + Send>, mut each: impl FnMut(String
     let mut chunk = [0u8; 4096];
     let mut flush = |buf: &mut Vec<u8>| {
         if !buf.is_empty() {
-            let text = String::from_utf8_lossy(buf).trim_end().to_string();
+            // Without colour codes, so the Logs page, the run log and the reports read cleanly.
+            let text = perf::strip_ansi(&String::from_utf8_lossy(buf)).trim_end().to_string();
             buf.clear();
             if !text.trim().is_empty() {
                 each(text);
@@ -1737,6 +1738,15 @@ fn main() -> eframe::Result {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn runtime_output_lines_lose_their_colour_codes() {
+        // As the runtime prints it (see the reports in #51 and #56).
+        let out = "\u{1b}[2m2026-11-26T23:38:37.414043Z\u{1b}[0m \u{1b}[33m WARN\u{1b}[0m \u{1b}[2mscarlett_gpu::draw\u{1b}[0m\u{1b}[2m:\u{1b}[0m uploaded again \u{1b}[3mslot\u{1b}[0m\u{1b}[2m=\u{1b}[0m33899\r\n\u{1b}[0m\n";
+        let mut lines = Vec::new();
+        split_lines(Box::new(std::io::Cursor::new(out.as_bytes().to_vec())), |l| lines.push(l));
+        assert_eq!(lines, ["2026-11-26T23:38:37.414043Z  WARN scarlett_gpu::draw: uploaded again slot=33899"], "a line of only colour codes is dropped");
+    }
 
     #[test]
     fn corrupt_settings_are_kept_and_defaults_used() {
