@@ -84,10 +84,76 @@ pub(crate) fn admit_texture_pass(bake: bool) -> bool {
 /// whenever `admit_texture_pass` is true).
 pub(crate) fn allow_staging_growth(bake: bool) -> bool {
     let now = crate::host::coarse_ms();
-    if now < RETRY_UPLOAD_AT.load(Ordering::Relaxed) {
+    if now < RETRY_UPLOAD_AT.load(Ordering::Relaxed) || (!bake && shared_full()) {
         return false;
     }
     has_growth_reserve(sample_commit(now), bake)
+}
+
+/// Whether the PC's memory shared with the card is nearly used up: the
+/// system's non-local video memory budget for this process, which the
+/// commit checks above do not see. Upload blocks (texture staging) are in
+/// it, and a 30 GB page file leaves commit at 34 GB while this budget is
+/// 7.4 GB (16 GB of RAM). Three RX 6700 XT runs lost the device (0x887A0007)
+/// one to two seconds after it reached 94 to 98 % of its budget, during the
+/// opening cutscene's texture surge (issue #123).
+static SHARED_FULL: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn shared_full() -> bool {
+    SHARED_FULL.load(Ordering::Relaxed)
+}
+
+/// The share of the shared budget, in percent, from which it counts as full
+/// (`SCARLETT_SHARED_ROOM_PERCENT`, 80; 50 to 100, where 100 turns it off).
+/// It counts as full again until use falls 5 points below.
+fn shared_percent() -> u64 {
+    static PERCENT: OnceLock<u64> = OnceLock::new();
+    *PERCENT.get_or_init(|| {
+        std::env::var("SCARLETT_SHARED_ROOM_PERCENT")
+            .ok()
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .map_or(80, |p| p.clamp(50, 100))
+    })
+}
+
+fn next_shared_full(was: bool, budget: u64, used: u64, percent: u64) -> bool {
+    if percent >= 100 || budget == 0 {
+        return false;
+    }
+    let line = if was { percent - 5 } else { percent };
+    u128::from(used) * 100 >= u128::from(budget) * u128::from(line)
+}
+
+/// Called by the once-per-second submission sweep with the host's
+/// [`crate::host::Host::video_memory`]; nothing changes without it.
+pub(crate) fn note_video_memory(memory: Option<[u64; 4]>) {
+    let Some([_, _, budget, used]) = memory else { return };
+    let was = shared_full();
+    let full = next_shared_full(was, budget, used, shared_percent());
+    if full == was {
+        return;
+    }
+    SHARED_FULL.store(full, Ordering::Relaxed);
+    let staging_blocks_mib = crate::pool::staging_blocks_mib();
+    if full {
+        tracing::warn!(
+            frame = crate::frame::current(),
+            shared_used_mib = used >> 20,
+            shared_budget_mib = budget >> 20,
+            percent = shared_percent(),
+            ?staging_blocks_mib,
+            texture_staging_mib = crate::texture::live_staging_bytes() >> 20,
+            "the PC's memory shared with the card is nearly full: no new texture staging blocks, idle ones let go, \
+             prefetch slowed (SCARLETT_SHARED_ROOM_PERCENT)"
+        );
+    } else {
+        tracing::info!(
+            shared_used_mib = used >> 20,
+            shared_budget_mib = budget >> 20,
+            ?staging_blocks_mib,
+            "the PC's memory shared with the card has room again"
+        );
+    }
 }
 
 pub(crate) fn limited_host_ram() -> bool {
@@ -161,6 +227,23 @@ pub(crate) fn prefetch_limit(bytes: u64, pressure: bool, critical: bool, limited
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_memory_counts_as_full_from_its_line_until_five_points_below() {
+        const MB: u64 = MIB;
+        let budget = 7473 * MB;
+        // Issue #123's run 2: 5947 MB (80 %) five seconds and 6813 MB (91 %)
+        // one second before the device went.
+        assert!(!next_shared_full(false, budget, 5900 * MB, 80));
+        assert!(next_shared_full(false, budget, 5979 * MB, 80));
+        assert!(next_shared_full(false, budget, 6813 * MB, 80));
+        // Full stays full until 75 %.
+        assert!(next_shared_full(true, budget, 5700 * MB, 80));
+        assert!(!next_shared_full(true, budget, 5560 * MB, 80));
+        // 100 turns it off; no budget (no adapter) is never full.
+        assert!(!next_shared_full(false, budget, budget, 100));
+        assert!(!next_shared_full(true, 0, 5000 * MB, 80));
+    }
 
     #[test]
     fn bake_and_lookahead_leave_room_for_live_game_allocations() {

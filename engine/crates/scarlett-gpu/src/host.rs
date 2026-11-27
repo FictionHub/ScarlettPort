@@ -444,7 +444,9 @@ fn sweep() {
     if crate::residency::pressured() {
         trim_spare_chunks();
     }
-    crate::pool::room(host().and_then(|h| h.video_memory()));
+    let memory = host().and_then(|h| h.video_memory());
+    crate::residency::note_video_memory(memory);
+    crate::pool::room(memory);
     crate::pipeline::trim_library();
     crate::shadow::let_go_idle();
     crate::texture::let_go_idle();
@@ -9915,8 +9917,12 @@ impl Host {
         let Some([own, shared]) = self.video_memory_groups() else {
             return;
         };
+        // Of the shared memory, what the texture staging blocks hold and the
+        // staging alive (in blocks or of their own): issue #123's runs filled
+        // it to 98 % without saying with what.
+        let staging_blocks = crate::pool::staging_blocks_mib().map_or_else(|| "?".to_string(), |mb| mb.to_string());
         tracing::info!(
-            "video memory as the system counts it, {}: the card's own: budget {} MB, in use {} MB, {} MB could still be reserved, {} MB reserved; the PC's shared with the card: budget {} MB, in use {} MB, {} MB could still be reserved, {} MB reserved (the layer reserves none)",
+            "video memory as the system counts it, {}: the card's own: budget {} MB, in use {} MB, {} MB could still be reserved, {} MB reserved; the PC's shared with the card: budget {} MB, in use {} MB, {} MB could still be reserved, {} MB reserved (the layer reserves none); texture staging: {} MB of blocks, {} MB alive",
             when,
             own[0] >> 20,
             own[1] >> 20,
@@ -9925,7 +9931,9 @@ impl Host {
             shared[0] >> 20,
             shared[1] >> 20,
             shared[2] >> 20,
-            shared[3] >> 20
+            shared[3] >> 20,
+            staging_blocks,
+            crate::texture::live_staging_bytes() >> 20
         );
     }
 

@@ -52,7 +52,9 @@ pub(crate) fn room(memory: Option<[u64; 4]>) {
         pool.reclaim(tick, limit, true);
     }
     if let Ok(mut pool) = STAGING.try_lock() {
-        let staging_limit = if crate::residency::critical_commit() {
+        // Staging blocks are the PC's memory shared with the card: none kept
+        // idle while that is nearly full (`residency::shared_full`).
+        let staging_limit = if crate::residency::critical_commit() || crate::residency::shared_full() {
             0
         } else if pressure {
             1
@@ -360,6 +362,12 @@ static HELD: AtomicU64 = AtomicU64::new(0);
 /// by us that new textures take first.
 pub(crate) fn texture_room() -> u64 {
     (lock(&TEXTURES).blocks() as u64 * BLOCK).saturating_sub(HELD.load(Ordering::Relaxed))
+}
+
+/// The MB of staging blocks, for log lines that may be written while the
+/// staging pool is held (`None` then): it never waits for the pool.
+pub(crate) fn staging_blocks_mib() -> Option<u64> {
+    STAGING.try_lock().ok().map(|pool| pool.blocks() as u64 * (BLOCK >> 20))
 }
 
 /// For the memory line: blocks of textures and of staging buffers, in MiB.

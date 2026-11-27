@@ -2720,7 +2720,7 @@ impl State {
             crate::residency::prefetch_limit(
                 bytes_at_most,
                 crate::residency::pressured(),
-                crate::residency::critical_commit(),
+                crate::residency::critical_commit() || crate::residency::shared_full(),
                 crate::residency::limited_host_ram(),
                 crate::texture::live_staging_bytes(),
             )
