@@ -2241,7 +2241,7 @@ dependencies = [
 
 [[package]]
 name = "scarlettport-launcher"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "eframe",
  "image",

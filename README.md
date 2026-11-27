@@ -38,6 +38,14 @@ You supply a dump of your own legally purchased copy. Nothing of any title is in
 - **Frame rate:** about 7-8 fps in the world on an RTX 3060 12 GB + Ryzen 5 5600X with a warm cache (v0.5.2, Series S profile). The goal is a playable 30 fps.
 - **Stability over long sessions:** no long run has been recorded yet.
 
+**New in 0.5.4** (fixes merged after 0.5.3; built and unit-tested):
+- Black skin on AMD: a pipeline listed as bad after one crash while warming is built again on its own at every Prepare and taken off the list when it builds, so no pipeline stays skipped for good ([#146](https://github.com/ZigZagBoi1/ScarlettPort/pull/146), [#92](https://github.com/ZigZagBoi1/ScarlettPort/issues/92)).
+- The launcher minimizes while the game runs and comes back when it closes or crashes, then offers to send a crash report (a prefilled GitHub issue you check before submitting) ([#141](https://github.com/ZigZagBoi1/ScarlettPort/pull/141)).
+- The launcher's main tab no longer says shaders are ready when the cache isn't prepared for the current driver and preset ([#141](https://github.com/ZigZagBoi1/ScarlettPort/pull/141), [#135](https://github.com/ZigZagBoi1/ScarlettPort/issues/135)).
+- A damaged game file is named in the log and the crash log, with how to check it ([#127](https://github.com/ZigZagBoi1/ScarlettPort/pull/127)).
+- Game folders behind symbolic links are found, shader scans are faster, split-storage verify fixed ([#134](https://github.com/ZigZagBoi1/ScarlettPort/pull/134)); a CLI-built shader cache is reused only when its translator matches ([#153](https://github.com/ZigZagBoi1/ScarlettPort/pull/153)).
+- Read-only CLI commands no longer move old data folders ([#131](https://github.com/ZigZagBoi1/ScarlettPort/pull/131)); embedded shader containers keep their hashes ([#114](https://github.com/ZigZagBoi1/ScarlettPort/pull/114)); a misleading "pipeline missing" warning removed ([#147](https://github.com/ZigZagBoi1/ScarlettPort/pull/147)).
+
 **New in 0.5.3** (fixes merged after 0.5.2; built and unit-tested, the AMD fixes not checked on those cards by us):
 - RX 6000 (RDNA 2): mesh pipelines are made one at a time on AMD and the mapped pipeline library is kept ([#88](https://github.com/ZigZagBoi1/ScarlettPort/pull/88)).
 - RX 9000 (RDNA 4): a raw view's size is read through its own handle, plus the newer device ids ([#93](https://github.com/ZigZagBoi1/ScarlettPort/pull/93)).
