@@ -11,7 +11,9 @@
 
 <b>⭐ If ScarlettPort helps you, please star the repo, it helps more people find it.</b>
 
-> *"Every line of this was written on late nights, for the love of seeing something impossible run. If it ever gave you that same spark, even $1 tells me it was worth it."* — Ziggy
+> *"Almost everything you download was made by a company. This was made by a person who could not stop wondering whether it was possible. If it gave you even one moment of that same wonder, a single dollar is how you tell someone their late nights mattered."*
+>
+> Ziggy
 
 <a href="https://www.paypal.me/SalwanStudios"><img src="https://img.shields.io/badge/DONATE-PayPal-blue?style=for-the-badge&logo=paypal&logoColor=white" alt="Donate via PayPal"></a>
 
