@@ -38,6 +38,14 @@ You supply a dump of your own legally purchased copy. Nothing of any title is in
 - **Frame rate:** about 7-8 fps in the world on an RTX 3060 12 GB + Ryzen 5 5600X with a warm cache (v0.5.2, Series S profile). The goal is a playable 30 fps.
 - **Stability over long sessions:** no long run has been recorded yet.
 
+**New in 0.5.5** (fixes merged after 0.5.4; built and unit-tested):
+- Laptops with integrated and dedicated graphics: the engine now runs on the high-performance GPU and logs its name, instead of the default adapter, which is the integrated one ([#292](https://github.com/ZigZagBoi1/ScarlettPort/pull/292), [#274](https://github.com/ZigZagBoi1/ScarlettPort/issues/274)).
+- The launcher finds FSR from the game's own AMD upscaler DLL in the game folder ([#164](https://github.com/ZigZagBoi1/ScarlettPort/pull/164), [#160](https://github.com/ZigZagBoi1/ScarlettPort/issues/160)).
+- Ported from trustno1-coder/VIctory-NVIDIA with credit: console shader lanes spread over several host waves take their threads from a group counter (`SCARLETT_THREAD_TICKET=0` restores the old numbering), the violet patches on lit paper are gone, dynamic descriptor slots go back only to their own heap; opt-in `SCARLETT_HELPER_PRIORITY`, `SCARLETT_RAW_VIEW_CLAMP` and `SCARLETT_SKIP_BINK` ([#304](https://github.com/ZigZagBoi1/ScarlettPort/pull/304)).
+- Without ray tracing, the translucent back-light is cleared after the final gather (`SCARLETT_TRANSLUCENT_BACKLIGHT=1` keeps the old look) ([#222](https://github.com/ZigZagBoi1/ScarlettPort/pull/222)).
+- `scarlett pipeline-cache` reads the game's own precompiled pipeline cache from your files and can seed and fill the pipeline library ahead of a first run (`--seed`, `--fill`; a command for now, not yet part of Prepare) ([#223](https://github.com/ZigZagBoi1/ScarlettPort/pull/223), [#249](https://github.com/ZigZagBoi1/ScarlettPort/pull/249)-[#254](https://github.com/ZigZagBoi1/ScarlettPort/pull/254)).
+- Shader warm-up stops scanning at its deadline ([#200](https://github.com/ZigZagBoi1/ScarlettPort/pull/200)).
+
 **New in 0.5.4** (fixes merged after 0.5.3; built and unit-tested):
 - Black skin on AMD: a pipeline listed as bad after one crash while warming is built again on its own at every Prepare and taken off the list when it builds, so no pipeline stays skipped for good ([#146](https://github.com/ZigZagBoi1/ScarlettPort/pull/146), [#92](https://github.com/ZigZagBoi1/ScarlettPort/issues/92)).
 - The launcher minimizes while the game runs and comes back when it closes or crashes, then offers to send a crash report (a prefilled GitHub issue you check before submitting) ([#141](https://github.com/ZigZagBoi1/ScarlettPort/pull/141)).
