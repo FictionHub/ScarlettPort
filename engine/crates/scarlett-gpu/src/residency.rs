@@ -104,15 +104,17 @@ pub(crate) fn shared_full() -> bool {
 }
 
 /// The share of the shared budget, in percent, from which it counts as full
-/// (`SCARLETT_SHARED_ROOM_PERCENT`, 80; 50 to 100, where 100 turns it off).
-/// It counts as full again until use falls 5 points below.
+/// (`SCARLETT_SHARED_ROOM_PERCENT`, 70; 50 to 100, where 100 turns it off).
+/// It counts as full again until use falls 5 points below. (80 left too
+/// little time: in run 3 of issue #123 use grew by about 200 MB a second
+/// and passed 80 % six seconds before the device went, 65 % seventeen.)
 fn shared_percent() -> u64 {
     static PERCENT: OnceLock<u64> = OnceLock::new();
     *PERCENT.get_or_init(|| {
         std::env::var("SCARLETT_SHARED_ROOM_PERCENT")
             .ok()
             .and_then(|v| v.trim().parse::<u64>().ok())
-            .map_or(80, |p| p.clamp(50, 100))
+            .map_or(70, |p| p.clamp(50, 100))
     })
 }
 
@@ -231,18 +233,19 @@ mod tests {
     #[test]
     fn shared_memory_counts_as_full_from_its_line_until_five_points_below() {
         const MB: u64 = MIB;
-        let budget = 7473 * MB;
-        // Issue #123's run 2: 5947 MB (80 %) five seconds and 6813 MB (91 %)
-        // one second before the device went.
-        assert!(!next_shared_full(false, budget, 5900 * MB, 80));
-        assert!(next_shared_full(false, budget, 5979 * MB, 80));
-        assert!(next_shared_full(false, budget, 6813 * MB, 80));
-        // Full stays full until 75 %.
-        assert!(next_shared_full(true, budget, 5700 * MB, 80));
-        assert!(!next_shared_full(true, budget, 5560 * MB, 80));
+        let budget = 7489 * MB;
+        // Issue #123's run 3: 4844 MB (65 %) seventeen seconds, 5643 MB
+        // (75 %) seven seconds and 6820 MB (91 %) one second before the
+        // device went.
+        assert!(!next_shared_full(false, budget, 4844 * MB, 70));
+        assert!(next_shared_full(false, budget, 5643 * MB, 70));
+        assert!(next_shared_full(false, budget, 6820 * MB, 70));
+        // Full stays full until 65 %.
+        assert!(next_shared_full(true, budget, 4900 * MB, 70));
+        assert!(!next_shared_full(true, budget, 4800 * MB, 70));
         // 100 turns it off; no budget (no adapter) is never full.
         assert!(!next_shared_full(false, budget, budget, 100));
-        assert!(!next_shared_full(true, 0, 5000 * MB, 80));
+        assert!(!next_shared_full(true, 0, 5000 * MB, 70));
     }
 
     #[test]
