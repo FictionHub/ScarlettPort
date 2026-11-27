@@ -65,6 +65,9 @@ Hardware reports from testers. These are **their own measurements**, not ours.
 
 - **RX 9060 XT 16 GB + Ryzen 7 7700X**, 0.5.2 (levels on demand fixed): 22.0 fps median (45.4 ms), up from 18.9. [#64](https://github.com/ZigZagBoi1/ScarlettPort/pull/64)
 - **RX 9060 XT 16 GB + Ryzen 7 7700X**, v0.4.9 after warm: 18.7 fps median (53.4 ms; best 32.9 ms), up 3.3x from v0.4.4. [#53](https://github.com/ZigZagBoi1/ScarlettPort/issues/53)
+- **RTX 3070 8 GB + Ryzen 7 5700X**, v0.5.2: 1 h 20 min without a crash, 8.5 fps in the world, 30 in menus (warm cache). [#106](https://github.com/ZigZagBoi1/ScarlettPort/issues/106)
+- **RTX 3060 + Core i5-11400**, v0.5.2: 9.1 fps average (2.9-30). [#109](https://github.com/ZigZagBoi1/ScarlettPort/issues/109)
+- **RTX 5060 8 GB + Core i5-14400F**, v0.5.2: up to 15 fps in the prologue, about 8 in the police scene. [#107](https://github.com/ZigZagBoi1/ScarlettPort/issues/107)
 - **RTX 4070 Ti + Core i5-13600KF**, v0.5.1: 13.4 fps average (3.3-30.1). [#76](https://github.com/ZigZagBoi1/ScarlettPort/issues/76)
 - **RTX 4060 Laptop 8 GB + Core i9-13980HX**, v0.5.1: 5-7 fps in the cell, 3-4 walking (215 ms of 275 on the GPU). [#68](https://github.com/ZigZagBoi1/ScarlettPort/issues/68)
 - **RTX 4070 12 GB + Ryzen 9 3900X**, v0.5.0: whole prologue played, 3-6 fps in the world, 30 fps in menus. [#56](https://github.com/ZigZagBoi1/ScarlettPort/issues/56)
@@ -81,6 +84,9 @@ Hardware reports from testers. These are **their own measurements**, not ours.
 |---|---|---|---|---|
 | [#64](https://github.com/ZigZagBoi1/ScarlettPort/pull/64) | RX 9060 XT 16 GB | Ryzen 7 7700X | 0.5.2 | 22.0 fps median (45.4 ms) |
 | [#53](https://github.com/ZigZagBoi1/ScarlettPort/issues/53) | RX 9060 XT 16 GB | Ryzen 7 7700X | 0.4.9, after warm | 18.7 fps median (53.4 ms; best 32.9 ms), 3.3x over 0.4.4 |
+| [#106](https://github.com/ZigZagBoi1/ScarlettPort/issues/106) | RTX 3070 8 GB | Ryzen 7 5700X | 0.5.2 | 8.5 fps in the world, 80 min without a crash |
+| [#109](https://github.com/ZigZagBoi1/ScarlettPort/issues/109) | RTX 3060 | Core i5-11400 | 0.5.2 | 9.1 fps average |
+| [#107](https://github.com/ZigZagBoi1/ScarlettPort/issues/107) | RTX 5060 8 GB | Core i5-14400F | 0.5.2 | up to 15 fps in the prologue |
 | [#76](https://github.com/ZigZagBoi1/ScarlettPort/issues/76) | RTX 4070 Ti | Core i5-13600KF | 0.5.1 | 13.4 fps average (3.3-30.1) |
 | [#68](https://github.com/ZigZagBoi1/ScarlettPort/issues/68) | RTX 4060 Laptop 8 GB | Core i9-13980HX | 0.5.1 | 5-7 fps in the cell, 3-4 walking |
 | [#56](https://github.com/ZigZagBoi1/ScarlettPort/issues/56) | RTX 4070 12 GB | Ryzen 9 3900X | 0.5.0 | 3-6 fps in the world, whole prologue |
