@@ -322,6 +322,8 @@ pub struct Launcher {
     pub minimized_for_game: bool,
     /// The last Play run ended with an error: offer to send a report.
     pub crash_prompt: bool,
+    /// A plain reason the last Play run stopped (missing or damaged game files), if known.
+    pub stop_reason: Option<String>,
     pub local_hash: Option<String>,
     pub local_desc: String,
     pub verify: Option<verify::Report>,
@@ -492,6 +494,7 @@ impl Launcher {
             crash_report: None,
             minimized_for_game: false,
             crash_prompt: false,
+            stop_reason: None,
             local_hash: None,
             local_desc: String::new(),
             verify: None,
@@ -661,7 +664,8 @@ impl Launcher {
     /// Gathers the hardware report and opens a prefilled GitHub issue (or copies it).
     pub fn hardware_report(&mut self, ctx: &egui::Context) {
         let sys = report::system();
-        let lines: Vec<String> = self.logs.iter().map(|(t, _)| t.clone()).collect();
+        // A launcher opened after the run has no live log: the last run's log then (#170).
+        let lines: Vec<String> = if self.logs.is_empty() { self.last_log.clone() } else { self.logs.iter().map(|(t, _)| t.clone()).collect() };
         let tail = lines[lines.len().saturating_sub(200)..].join("\n");
         let folders = [(self.config.game_path.as_str(), "<game>"), (self.config.cache_dir.as_str(), "<cache>")];
         let engine = if self.world_selected() { format!("World engine (ScarlettPort runtime), {}", self.world_hash.as_deref().map(|h| &h[..12]).unwrap_or("?")) } else { format!("Classic engine (XCL), {}", self.runtime_hash.as_deref().map(|h| &h[..12]).unwrap_or("?")) };
@@ -672,7 +676,7 @@ impl Launcher {
             ("driver", sys.driver.clone()),
             ("system", format!("{}; {} GB RAM; {}", sys.cpu, sys.ram_gb, sys.os)),
             ("runtime", format!("Launcher v{VERSION}; {engine}{build}; {} preset", presets::label(&self.config.preset))),
-            ("fps", report::fps_summary(&lines)),
+            ("fps", report::fps_summary_or(&lines, || perf::last_log().map(|p| perf::tail(&p, 200_000)).unwrap_or_default())),
         ];
         for f in &mut fields {
             f.1 = report::scrub(&f.1, &folders);
@@ -811,7 +815,17 @@ impl Launcher {
             return;
         }
         let game = PathBuf::from(&self.config.game_path);
-        let _ = std::fs::create_dir_all(self.config.cache_dir.trim());
+        // The runtime's own folders under the cache too: a missing one stopped Prepare (#252).
+        if let Err(e) = std::fs::create_dir_all(self.config.cache_dir.trim()).and_then(|_| std::fs::create_dir_all(self.scarlett_cache())) {
+            self.status = format!("Cannot create the cache folder {}: {e}. Check that its drive is connected, or pick another cache folder in Settings.", self.config.cache_dir.trim());
+            let status = self.status.clone();
+            self.log(status, LogKind::Error);
+            self.go(Page::Settings);
+            return;
+        }
+        if game::is_network_path(self.config.cache_dir.trim()) {
+            self.log(format!("The cache folder {} is on a network share. Windows will not run the game image from there, so it is loaded from a local temporary copy; a cache folder on a local disk (Settings) is faster and safer.", self.config.cache_dir.trim()), LogKind::Info);
+        }
         if kind == RunKind::Precompile {
             return self.start_build(game);
         }
@@ -1425,6 +1439,7 @@ impl Launcher {
             return;
         }
         let what = match self.crash_report.as_ref().and_then(|r| r.file_name()) {
+            _ if self.stop_reason.is_some() => self.stop_reason.clone().unwrap_or_default(),
             Some(n) => format!("The game crashed. Its crash report was saved ({}).", n.to_string_lossy()),
             None => "The game stopped with an error.".to_string(),
         };
@@ -1515,9 +1530,24 @@ impl Launcher {
                         Some(c) => format!("Stopped (exit code {c})."),
                         None => "Stopped.".to_string(),
                     };
-                    self.status = if self.crash_report.is_some() { "The game crashed - a report was saved.".to_string() } else { note.clone() };
+                    // A known problem with the game files reads as that, not as a crash (#341).
+                    let reason = if kind == RunKind::Play && code.is_some_and(|c| c != 0) {
+                        let lines: Vec<String> = self.logs.iter().rev().take(400).map(|(t, _)| t.clone()).collect::<Vec<_>>().into_iter().rev().collect();
+                        flow::stop_reason(&lines)
+                    } else {
+                        None
+                    };
+                    self.stop_reason = reason.clone();
+                    self.status = match &reason {
+                        Some(r) => r.clone(),
+                        None if self.crash_report.is_some() => "The game crashed - a report was saved.".to_string(),
+                        None => note.clone(),
+                    };
                     let what = if kind == RunKind::Play { "Game" } else { "World pipeline build" };
                     self.log(format!("{what} ended. {note}"), if code == Some(0) { LogKind::Info } else { LogKind::Error });
+                    if let Some(r) = reason {
+                        self.log(r, LogKind::Error);
+                    }
                 }
                 Message::Build(p) => self.build = Some(p),
                 Message::BuildEnded(r) => {
