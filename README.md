@@ -35,8 +35,17 @@ You supply a dump of your own legally purchased copy. Nothing of any title is in
 
 **Remaining:**
 
-- **Frame rate:** 3.4 fps in the world on an RTX 3060 12 GB + Ryzen 5 5600X (v0.5.0, Series S profile). The goal is a playable 30 fps.
+- **Frame rate:** about 7-8 fps in the world on an RTX 3060 12 GB + Ryzen 5 5600X with a warm cache (v0.5.2, Series S profile). The goal is a playable 30 fps.
 - **Stability over long sessions:** no long run has been recorded yet.
+
+**New in 0.5.3** (fixes merged after 0.5.2; built and unit-tested, the AMD fixes not checked on those cards by us):
+- RX 6000 (RDNA 2): mesh pipelines are made one at a time on AMD and the mapped pipeline library is kept ([#88](https://github.com/ZigZagBoi1/ScarlettPort/pull/88)).
+- RX 9000 (RDNA 4): a raw view's size is read through its own handle, plus the newer device ids ([#93](https://github.com/ZigZagBoi1/ScarlettPort/pull/93)).
+- AMD driver crashes while warming shaders: a pipeline is retried alone before it is listed as bad ([#104](https://github.com/ZigZagBoi1/ScarlettPort/pull/104)).
+- BC7 textures: the channel rotation is read only in modes 4 and 5, which swapped alpha into a colour channel in some textures ([#108](https://github.com/ZigZagBoi1/ScarlettPort/pull/108)).
+- Indirect draws whose arguments were written late are clamped one by one ([#101](https://github.com/ZigZagBoi1/ScarlettPort/pull/101)); every refused pipeline logs its reason.
+- NVIDIA frame-time work from Belobug and avatarmanz, fewer heap re-sets; F11 toggles borderless fullscreen ([#95](https://github.com/ZigZagBoi1/ScarlettPort/pull/95)).
+- Launcher 0.5.3: names the discrete GPU in hardware reports and shows the right bundled runtime version.
 
 **New in 0.5.2** (built and unit-tested, not yet measured in a game run on our RTX 3060):
 - No more black screen after loading on the Stable preset: the engine uses the game's own upscaler and falls back to it when the AMD one is missing ([#60](https://github.com/ZigZagBoi1/ScarlettPort/pull/60), [#61](https://github.com/ZigZagBoi1/ScarlettPort/issues/61)).
