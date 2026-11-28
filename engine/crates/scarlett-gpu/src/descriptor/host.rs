@@ -3737,7 +3737,15 @@ fn view_extent() -> bool {
 /// part's one), and for buffer objects, a part that also lies in a smaller
 /// buffer object. The slot then showed a copy nothing brought up to date,
 /// and what shaders wrote through it was looked for in the other copy.
+///
+/// Of a constant buffer view, only a copy of its own bytes
+/// ([`constant_home`]): nothing else brings that one up to date.
 pub(crate) fn buffer_copy(view: &View) -> Option<(std::sync::Arc<crate::shadow::Shadow>, u64, u64)> {
+    if let &View::Constant(address, size) = view {
+        let (home, _) = constant_home(address, size)?;
+        let own = home.span() == (address, constant_own_bytes(size));
+        return own.then(|| (home, address, constant_own_bytes(size)));
+    }
     let (address, len) = buffer_range(view)?;
     if len == 0 {
         return None;
@@ -4264,6 +4272,52 @@ fn constant_bytes(size: u32) -> u32 {
     size.min(LARGEST).next_multiple_of(256)
 }
 
+/// The title bytes a constant buffer view of `size` bytes gets a copy of
+/// when it begins where no host one can ([`constant_home`]): those the host
+/// view reads, at most 64 KiB ([`constant_bytes`] rounds that up to 256 and
+/// the copy's buffer is as long).
+fn constant_own_bytes(size: u32) -> u64 {
+    u64::from(size.min(64 << 10))
+}
+
+/// Whether a constant buffer view at `gpu` in a host copy begins where a host
+/// one can: on 256 bytes (`D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT`).
+/// The console's begin on 16.
+fn constant_placed(gpu: u64) -> bool {
+    gpu.is_multiple_of(256)
+}
+
+/// The host copy and its GPU address the constant buffer view of `size` bytes
+/// at title `address` is made on: its buffer's copy if the view begins on 256
+/// bytes there, else a copy of the view's own bytes ([`crate::shadow::exact`],
+/// as buffer views off their elements get), which begins on 256. Such a view
+/// was left null, and shaders read zeros (issues 594, 614, at 0x2476f3c0 and
+/// 0x515b0bfe0). That copy is brought up to date when a draw reads the slot
+/// ([`buffer_copy`]). `SCARLETT_VIEW_BYTES=0` leaves these views null again.
+fn constant_home(address: u64, size: u32) -> Option<(std::sync::Arc<crate::shadow::Shadow>, u64)> {
+    let shadow = crate::shadow::find(address, u64::from(size))?;
+    let gpu = shadow.gpu(address);
+    if constant_placed(gpu) {
+        return Some((shadow, gpu));
+    }
+    let own = view_bytes()
+        .then(|| crate::shadow::exact(address, constant_own_bytes(size)))
+        .flatten()
+        .map(|own| {
+            let gpu = own.gpu(address);
+            (own, gpu)
+        })
+        .filter(|&(_, gpu)| constant_placed(gpu));
+    if own.is_none() {
+        once!(
+            address = format_args!("{address:#x}"),
+            size,
+            "constant buffer not 256-byte aligned on the host, and no copy of its own bytes: left null (reads zeros)"
+        );
+    }
+    own
+}
+
 /// Makes the host descriptor for `view` at `at`: the host resource it
 /// views, or `None` if it cannot.
 fn make(view: &View, at: D3D12_CPU_DESCRIPTOR_HANDLE) -> Option<Kept> {
@@ -4282,15 +4336,7 @@ fn make_twinned(
     let device = &host.device;
     match view {
         &View::Constant(address, size) => {
-            let shadow = crate::shadow::find(address, u64::from(size))?;
-            let gpu = shadow.gpu(address);
-            if gpu % 256 != 0 {
-                once!(
-                    address = format_args!("{address:#x}"),
-                    "constant buffer not 256-byte aligned on the host"
-                );
-                return None;
-            }
+            let (shadow, gpu) = constant_home(address, size)?;
             let desc = D3D12_CONSTANT_BUFFER_VIEW_DESC {
                 BufferLocation: gpu,
                 SizeInBytes: constant_bytes(size),
@@ -5310,6 +5356,52 @@ mod tests {
         assert_eq!(kin(&old, &view(buffer, 98, 1, 0x2000_0000)), Kin::None);
         for (kin, kept) in [(Kin::Same, [true; 3]), (Kin::Moved, [false, true, true]), (Kin::Sized, [false, true, true]), (Kin::Other, [false, false, true]), (Kin::None, [false; 3])] {
             assert_eq!([0, 1, 2].map(|keep| kin.kept(keep)), kept, "{kin:?}");
+        }
+    }
+
+    /// A constant buffer view begins on 256 bytes on the host, and one off them
+    /// gets a copy of the bytes it reads, at most 64 KiB, which a host view of
+    /// [`constant_bytes`] fits in.
+    #[test]
+    fn a_constant_buffer_view_off_256_bytes_gets_its_own_bytes() {
+        assert!(constant_placed(0x1_0000));
+        assert!(constant_placed(0x1_0100));
+        for gpu in [0x1_0010, 0x1_00c0, 0x1_0fe0, 0x2476_f3c0, 0x5_15b0_bfe0] {
+            assert!(!constant_placed(gpu), "{gpu:#x}");
+        }
+        assert_eq!(constant_own_bytes(16), 16);
+        assert_eq!(constant_own_bytes(480), 480);
+        assert_eq!(constant_own_bytes(u32::MAX), 64 << 10);
+        for size in [16, 256, 480, 64 << 10, u32::MAX] {
+            assert!(constant_own_bytes(size).next_multiple_of(256) >= u64::from(constant_bytes(size)), "{size}");
+        }
+    }
+
+    /// The constant buffer view the issues name (title memory 32 or 64 bytes
+    /// past 256) is made on a copy of its own bytes, which begins on 256 and
+    /// which a draw that reads the slot brings up to date; one on 256 bytes
+    /// stays on its buffer's copy.
+    #[test]
+    fn a_constant_buffer_view_off_256_bytes_is_made() {
+        let Some(_host) = host() else {
+            return; // no host GPU
+        };
+        let Some(heap) = HostHeap::new(false, 4) else {
+            return;
+        };
+        let memory = vec![0u8; 1 << 20];
+        let at = (memory.as_ptr() as u64).next_multiple_of(64 << 10);
+        let aligned = View::Constant(at, 256);
+        assert!(make(&aligned, heap.cpu(0)).is_some());
+        assert!(buffer_copy(&aligned).is_none(), "its buffer's copy, as before");
+        for off in [0x20u64, 0x40, 0xfe0] {
+            let view = View::Constant(at + off, 480);
+            let (home, gpu) = constant_home(at + off, 480).expect("a copy");
+            assert!(constant_placed(gpu), "{off:#x}: {gpu:#x}");
+            assert!(make(&view, heap.cpu(1)).expect("made").is_some(), "{off:#x}");
+            let (copy, address, len) = buffer_copy(&view).expect("its own bytes");
+            assert!(std::sync::Arc::ptr_eq(&copy, &home));
+            assert_eq!((address, len), (at + off, 480));
         }
     }
 
