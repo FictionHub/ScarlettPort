@@ -1256,6 +1256,30 @@ extern "system" fn desc(this: This, out: *mut QueueDesc) {
     }
 }
 
+/// `SuspendX(flags)`, which a title calls on its queues in its suspend
+/// routine. The console stops the GPU there until `ResumeX`. Ours runs
+/// those routines only when the title ends (`scarlett_hle` lifecycle
+/// `end_title`) and then ends the process, so the host GPU need not stop:
+/// success, as the routine expects. Before this the slot logged
+/// "method not implemented" and failed as the title ended (title+0x24900a5).
+extern "system" fn suspend_x(_: This, _flags: u32) -> HRESULT {
+    tracing::debug!("command queue suspended");
+    S_OK
+}
+
+/// `ResumeX()`, after a suspend. Nothing was stopped.
+extern "system" fn resume_x(_: This) -> HRESULT {
+    S_OK
+}
+
+/// Methods newer titles' queues have, by their slot there. Only the newer
+/// layout's slots for these were seen (see [`newer_slot`]), so the older
+/// layout keeps logging them.
+const NEWER_METHODS: [(usize, *const ()); 2] = [
+    (23, suspend_x as *const ()), // 0xb8
+    (24, resume_x as *const ()),  // 0xc0
+];
+
 /// The queue methods by their slot in older titles' queues (the 2020-era
 /// layout): IUnknown 3, object 4, device child 1, queue 26 (12 as on PC,
 /// then console ones).
@@ -1294,6 +1318,12 @@ const fn queue_table(newer: bool) -> [*const (); 36] {
     while i < METHODS.len() {
         let (slot, method) = METHODS[i];
         f[if newer { newer_slot(slot) } else { slot }] = method;
+        i += 1;
+    }
+    let mut i = 0;
+    while newer && i < NEWER_METHODS.len() {
+        let (slot, method) = NEWER_METHODS[i];
+        f[slot] = method;
         i += 1;
     }
     f
@@ -1372,6 +1402,22 @@ mod tests {
         assert_eq!(old[14], new[16]); // signal 0x70 → 0x80
         assert_eq!(old[30], new[32]); // present 0xf0 → 0x100
         assert_eq!(new[35], execute_x as *const ()); // 0x118
+    }
+
+    /// The title's suspend routine calls SuspendX at 0xb8 as it ends; the
+    /// older layout does not have it there.
+    #[test]
+    fn newer_queues_suspend_and_resume() {
+        let (old, new) = (queue_table(false), queue_table(true));
+        assert_eq!(new[23], suspend_x as *const ()); // 0xb8
+        assert_eq!(new[24], resume_x as *const ()); // 0xc0
+        assert_ne!(old[21], suspend_x as *const ());
+        assert_ne!(old[23], suspend_x as *const ());
+        let q = Object::new(&NEWER_FUNCTIONS);
+        let suspend = slot::<extern "system" fn(This, u32) -> HRESULT>(&q, 0xb8);
+        let resume = slot::<extern "system" fn(This) -> HRESULT>(&q, 0xc0);
+        assert_eq!(suspend(&q, 0), S_OK);
+        assert_eq!(resume(&q), S_OK);
     }
 
     #[test]
