@@ -46,6 +46,12 @@ You supply a dump of your own legally purchased copy. Nothing of any title is in
 - **Frame rate:** about 7-8 fps in the world on an RTX 3060 12 GB + Ryzen 5 5600X with a warm cache (v0.5.2, Series S profile). The goal is a playable 30 fps.
 - **Stability over long sessions:** no long run has been recorded yet.
 
+**New in 0.5.7** (fixes merged after 0.5.6):
+- **Less memory, fewer out-of-memory crashes:** when Windows memory is close to its limit, the engine now frees spare memory and trims its caches, and a texture table that only ever grew is cleaned up as memory is freed. This targets the most common crash in reports and the slow fps drop over long sessions ([#370](https://github.com/ZigZagBoi1/ScarlettPort/pull/370)).
+- **Mouse look** now starts after a click in the game and lets go on Alt+Tab, when the pointer leaves the window, or while you move or resize it (from TalonEye, [#474](https://github.com/ZigZagBoi1/ScarlettPort/pull/474)).
+- The shader validator search skips Windows SDKs whose validator is too old (from ZephyrWusky, [#447](https://github.com/ZigZagBoi1/ScarlettPort/pull/447)). Shaders are translated once more after this update.
+- README: AVX2 and page file advice in the requirements, and a FAQ entry for 0xC0000135 ([#446](https://github.com/ZigZagBoi1/ScarlettPort/pull/446)).
+
 **New in 0.5.6** (fixes merged after 0.5.5):
 - **About 60% more fps:** the game spends a big part of every frame preparing geometry for ray tracing, which is off. That work is now skipped. On an RTX 3060, three in-session tests went from 7.4-8.1 fps to 12.2-13.6 fps with the same picture. `SCARLETT_BVH_INPUT_SKIP=0` turns it off ([#399](https://github.com/ZigZagBoi1/ScarlettPort/pull/399)).
 - **13th and 14th gen Intel:** an AMD-only instruction the game uses was handled through a slow fault on Intel CPUs. It now runs about 570 times faster, which should fix the startup stop on those CPUs ([#377](https://github.com/ZigZagBoi1/ScarlettPort/pull/377), [#350](https://github.com/ZigZagBoi1/ScarlettPort/issues/350)).
