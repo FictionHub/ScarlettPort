@@ -46,6 +46,15 @@ You supply a dump of your own legally purchased copy. Nothing of any title is in
 - **Frame rate:** about 7-8 fps in the world on an RTX 3060 12 GB + Ryzen 5 5600X with a warm cache (v0.5.2, Series S profile). The goal is a playable 30 fps.
 - **Stability over long sessions:** no long run has been recorded yet.
 
+**New in 0.5.6** (fixes merged after 0.5.5):
+- **About 60% more fps:** the game spends a big part of every frame preparing geometry for ray tracing, which is off. That work is now skipped. On an RTX 3060, three in-session tests went from 7.4-8.1 fps to 12.2-13.6 fps with the same picture. `SCARLETT_BVH_INPUT_SKIP=0` turns it off ([#399](https://github.com/ZigZagBoi1/ScarlettPort/pull/399)).
+- **13th and 14th gen Intel:** an AMD-only instruction the game uses was handled through a slow fault on Intel CPUs. It now runs about 570 times faster, which should fix the startup stop on those CPUs ([#377](https://github.com/ZigZagBoi1/ScarlettPort/pull/377), [#350](https://github.com/ZigZagBoi1/ScarlettPort/issues/350)).
+- **Fewer stutters on later starts:** the pipeline library is now saved while the game runs, not only on a clean exit, so pipelines are kept even when the game is stopped or crashes ([#367](https://github.com/ZigZagBoi1/ScarlettPort/pull/367)).
+- **Borderless and fullscreen** from the launcher's Display page now work with the ScarlettPort runtime; F11 still switches back (from Lyuu17, [#386](https://github.com/ZigZagBoi1/ScarlettPort/pull/386), [#387](https://github.com/ZigZagBoi1/ScarlettPort/pull/387)). The pointer is hidden during mouse look ([#385](https://github.com/ZigZagBoi1/ScarlettPort/pull/385)).
+- **Crash and setup fixes:** FSR divide-by-zero on the loading screen, a loader bug behind "malformed image" errors, a cache folder that doesn't exist yet, a cache on a network drive, a missing game file shown plainly ([#358](https://github.com/ZigZagBoi1/ScarlettPort/pull/358)), and the launcher stops with a clear message when the D3D12 files are missing ([#395](https://github.com/ZigZagBoi1/ScarlettPort/pull/395)).
+- **Proof of origin:** every file now has a signed GitHub build attestation, and the README explains antivirus warnings ([#416](https://github.com/ZigZagBoi1/ScarlettPort/pull/416)).
+- Pipelines keyed by only the blend state D3D12 reads (from Dune), and GPU test fixes ([#425](https://github.com/ZigZagBoi1/ScarlettPort/pull/425)).
+
 **New in 0.5.5** (fixes merged after 0.5.4; built and unit-tested):
 - Laptops with integrated and dedicated graphics: the engine now runs on the high-performance GPU and logs its name, instead of the default adapter, which is the integrated one ([#292](https://github.com/ZigZagBoi1/ScarlettPort/pull/292), [#274](https://github.com/ZigZagBoi1/ScarlettPort/issues/274)).
 - The launcher finds FSR from the game's own AMD upscaler DLL in the game folder ([#164](https://github.com/ZigZagBoi1/ScarlettPort/pull/164), [#160](https://github.com/ZigZagBoi1/ScarlettPort/issues/160)).
